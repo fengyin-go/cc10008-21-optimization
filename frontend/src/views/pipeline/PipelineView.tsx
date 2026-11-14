@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { downloadEntries, listEntries, moduleMeta, runAction as applyAction } from '@/api/local-service'
+import { useHealthStore } from '@/domain/health/store'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('pipeline')
@@ -48,6 +49,11 @@ export default function PipelineView() {
   const [errorMessage, setErrorMessage] = useState('')
   const [filters, setFilters] = useState<Record<string, string>>({})
   const filterFields = useMemo(() => columns.slice(0, 3), [])
+  const health = useHealthStore()
+  const blockedNodes = health.state.pipelineNodes.filter((node) => {
+    const pool = health.state.pools.find((item) => item.id === node.poolId)
+    return pool?.eligibility === 'blocked'
+  })
 
   const reload = useCallback(() => {
     setErrorMessage('')
@@ -90,6 +96,15 @@ export default function PipelineView() {
           </button>
         </div>
       </header>
+
+      {blockedNodes.length > 0 && (
+        <div className="error-banner" role="alert">
+          <span>
+            连接资格闸门：{blockedNodes.map((node) => node.name).join('、')} 绑定的连接池尚未恢复资格，
+            在「数据源接入」页完成检查前不得接活；阻断不会消耗连接池剩余重试次数。
+          </span>
+        </div>
+      )}
 
       <div className="stat-row">
         {stats.map((item) => (
